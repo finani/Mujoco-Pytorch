@@ -107,12 +107,12 @@ if agent_args.on_policy == True:
 
         agent.train_net(n_epi)
         state_rms.update(np.vstack(state_lst))
-        if n_epi%args.print_interval==0 and n_epi!=0:
-            # print("# of episode :{}, avg score : {:.1f}".format(n_epi, sum(score_lst)/len(score_lst)))
-            tr.set_description("{}: {}, avg score: {:.1f}".format(args.algo, n_epi, sum(score_lst)/len(score_lst)))
+        if (n_epi+1)%args.print_interval==0 and n_epi!=0:
+            avg_score = sum(score_lst)/len(score_lst)
+            tr.set_description("{}: {}, avg score: {:.1f}".format(args.algo, n_epi, avg_score))
             score_lst = []
-        if n_epi%args.save_interval==0 and n_epi!=0:
-            torch.save(agent.state_dict(),'./model_weights/agent_'+str(n_epi))
+        if (n_epi+1)%args.save_interval==0 and n_epi!=0:
+            torch.save(agent.state_dict(),'./model_weights/agent_'+str(args.env_name)+'_'+str(args.algo)+'_'+str(n_epi)+'_'+"{:.1f}".format(avg_score))
 
 else : # off policy
     tr = trange(args.epochs, desc=args.algo)
@@ -142,9 +142,9 @@ else : # off policy
         score_lst.append(score)
         if args.tensorboard:
             writer.add_scalar("score/score", score, n_epi)
-        if n_epi%args.print_interval==0 and n_epi!=0:
-            # print("# of episode :{}, avg score : {:.1f}".format(n_epi, sum(score_lst)/len(score_lst)))
-            tr.set_description("{}: {}, avg score: {:.1f}".format(args.algo, n_epi, sum(score_lst)/len(score_lst)))
+        if (n_epi+1)%args.print_interval==0 and n_epi!=0:
+            avg_score = sum(score_lst)/len(score_lst)
+            tr.set_description("{}: {}, avg score: {:.1f}".format(args.algo, n_epi, avg_score))
             score_lst = []
-        if n_epi%args.save_interval==0 and n_epi!=0:
-            torch.save(agent.state_dict(),'./model_weights/agent_'+str(n_epi))
+        if (n_epi+1)%args.save_interval==0 and n_epi!=0:
+            torch.save(agent.state_dict(),'./model_weights/agent_'+str(args.env_name)+'_'+str(args.algo)+'_'+str(n_epi)+'_'+"{:.1f}".format(avg_score))

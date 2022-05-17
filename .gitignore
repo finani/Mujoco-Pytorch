@@ -3,3 +3,4 @@ __pycache__
 /runs
 MUJOCO_LOG.TXT
 model_weights
+.vscode
