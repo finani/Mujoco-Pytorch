@@ -1,3 +1,5 @@
 __pycache__
 *.ipynb
 /runs
+MUJOCO_LOG.TXT
+model_weights

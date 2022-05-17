@@ -6,6 +6,8 @@ import gym
 import numpy as np
 import os
 
+from tqdm import trange
+
 from agents.ppo import PPO
 from agents.sac import SAC
 from agents.ddpg import DDPG
@@ -35,13 +37,13 @@ agent_args = Dict(parser,args.algo)
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 if args.use_cuda == False:
     device = 'cpu'
-    
+
 if args.tensorboard:
     from torch.utils.tensorboard import SummaryWriter
     writer = SummaryWriter()
 else:
     writer = None
-    
+
 env = gym.make(args.env_name)
 action_dim = env.action_space.shape[0]
 state_dim = env.observation_space.shape[0]
@@ -57,13 +59,13 @@ elif args.algo == 'ddpg' :
     noise = OUNoise(action_dim,0)
     agent = DDPG(writer, device, state_dim, action_dim, agent_args, noise)
 
-    
+
 if (torch.cuda.is_available()) and (args.use_cuda):
     agent = agent.cuda()
 
 if args.load != 'no':
     agent.load_state_dict(torch.load("./model_weights/"+args.load))
-    
+
 score_lst = []
 state_lst = []
 
@@ -71,9 +73,10 @@ if agent_args.on_policy == True:
     score = 0.0
     state_ = (env.reset())
     state = np.clip((state_ - state_rms.mean) / (state_rms.var ** 0.5 + 1e-8), -5, 5)
-    for n_epi in range(args.epochs):
+    tr = trange(args.epochs, desc=args.algo)
+    for n_epi in tr:
         for t in range(agent_args.traj_length):
-            if args.render:    
+            if args.render:
                 env.render()
             state_lst.append(state_)
             mu,sigma = agent.get_action(torch.from_numpy(state).float().to(device))
@@ -89,7 +92,7 @@ if agent_args.on_policy == True:
                                          np.array([done]),\
                                          log_prob.detach().cpu().numpy()\
                                         )
-            agent.put_data(transition) 
+            agent.put_data(transition)
             score += reward
             if done:
                 state_ = (env.reset())
@@ -105,18 +108,20 @@ if agent_args.on_policy == True:
         agent.train_net(n_epi)
         state_rms.update(np.vstack(state_lst))
         if n_epi%args.print_interval==0 and n_epi!=0:
-            print("# of episode :{}, avg score : {:.1f}".format(n_epi, sum(score_lst)/len(score_lst)))
+            # print("# of episode :{}, avg score : {:.1f}".format(n_epi, sum(score_lst)/len(score_lst)))
+            tr.set_description("{}: {}, avg score: {:.1f}".format(args.algo, n_epi, sum(score_lst)/len(score_lst)))
             score_lst = []
         if n_epi%args.save_interval==0 and n_epi!=0:
             torch.save(agent.state_dict(),'./model_weights/agent_'+str(n_epi))
-            
-else : # off policy 
-    for n_epi in range(args.epochs):
+
+else : # off policy
+    tr = trange(args.epochs, desc=args.algo)
+    for n_epi in tr:
         score = 0.0
         state = env.reset()
         done = False
         while not done:
-            if args.render:    
+            if args.render:
                 env.render()
             action, _ = agent.get_action(torch.from_numpy(state).float().to(device))
             action = action.cpu().detach().numpy()
@@ -127,18 +132,19 @@ else : # off policy
                                          next_state,\
                                          np.array([done])\
                                         )
-            agent.put_data(transition) 
+            agent.put_data(transition)
 
             state = next_state
 
             score += reward
-            if agent.data.data_idx > agent_args.learn_start_size: 
+            if agent.data.data_idx > agent_args.learn_start_size:
                 agent.train_net(agent_args.batch_size, n_epi)
         score_lst.append(score)
         if args.tensorboard:
             writer.add_scalar("score/score", score, n_epi)
         if n_epi%args.print_interval==0 and n_epi!=0:
-            print("# of episode :{}, avg score : {:.1f}".format(n_epi, sum(score_lst)/len(score_lst)))
+            # print("# of episode :{}, avg score : {:.1f}".format(n_epi, sum(score_lst)/len(score_lst)))
+            tr.set_description("{}: {}, avg score: {:.1f}".format(args.algo, n_epi, sum(score_lst)/len(score_lst)))
             score_lst = []
         if n_epi%args.save_interval==0 and n_epi!=0:
             torch.save(agent.state_dict(),'./model_weights/agent_'+str(n_epi))
